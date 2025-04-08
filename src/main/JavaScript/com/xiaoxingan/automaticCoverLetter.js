@@ -3,6 +3,7 @@ const addCoverLetterButtonPrimary = 'button[data-qa="vacancy-response-letter-tog
 const submitButtonPrimary = 'button[data-qa="vacancy-response-letter-submit"]';
 const submitButtonForced = 'button[data-qa="vacancy-response-submit-popup"]';
 const acceptRelocationWarningButton = 'button[data-qa="relocation-warning-confirm"]';
+const refuseDirectResposeButton = 'button[data-qa="vacancy-response-link-advertising-cancel"]';
 
 const vacancyContainer = 'div[data-qa*="vacancy-serp__vacancy"]';
 const vacancyTitleSelector = 'h2[data-qa="bloko-header-2"]';
@@ -14,6 +15,8 @@ const textareaCoverLetterForced = 'textarea[data-qa="vacancy-response-popup-form
 const titleToFindAfterRedirect = '[data-qa="title-description"]';
 const waitForRedirectTimeout = 2500;
 const waitAfterRedirectByHistoryTimeout = 1000;
+
+const isVacancyAlreadyChecked = 'div[data-qa="form-helper-error"]';
 
 const coverLetterText = `
 Добрый день, интересует ваше предложение о работе. 
@@ -76,11 +79,36 @@ async function checkRelocationWarning() {
     const relocationConfirmButton = await waitForResponse(acceptRelocationWarningButton);
 
     if (relocationConfirmButton) {
-        console.log("🟡 Окно с предупреждением о переезде появилось на экране и было найдено.");
+        console.log("🟡 Окно с предупреждением о переезде появилось на экране и было найдено");
         relocationConfirmButton.click();
         console.log("🟢 Нажали 'Все равно откликнуться'");
     } else {
-        console.log("🟢 Окно с предупреждением о переезде не появилось.");
+        console.log("🟢 Окно с предупреждением о переезде не появилось");
+    }
+}
+
+async function checkDirectResponseWarning() { // TODO: не проверено
+    const directResponseButton = await waitForResponse(refuseDirectResposeButton);
+
+    if (directResponseButton) {
+        console.log("🟡 Окно с предупреждением о прямом отклике появилось на экране и было найдено");
+        directResponseButton.click();
+        console.log("🟢 Нажали 'Отменить'");
+    } else {
+        console.log("🟢 Окно с предупреждением о прямом отклике не появилось");
+    }
+}
+
+async function checkIfVacancyAlreadyChecked() { // TODO: не проверено
+    const isChecked = await waitForResponse(isVacancyAlreadyChecked);
+
+    if (isChecked) {
+        console.log("🔒 Вакансию уже проверили. Страница будет работать некорректно, придется обновлять страницу!");
+        location.reload();
+        return true;
+    } else {
+        console.log("🟢 Вакансия еще не проверена, можно продолжать");
+        return false;
     }
 }
 
@@ -142,7 +170,7 @@ async function checkForRedirect(clickedButton, vacancyTitle, companyName) {
 function handleRedirectProcessing(clickedButton, vacancyTitle, companyName) {
     setTimeout(() => {
         saveProcessedVacancy({ title: vacancyTitle, company: companyName });
-        console.log("🟢 Вакансия добавлена как обработанная.");
+        console.log("🟢 Вакансия добавлена как обработанная");
 
     }, waitAfterRedirectByHistoryTimeout);
 }
@@ -156,12 +184,12 @@ function initCoverLetterAutomation() {
             return;
         }
 
-        console.log("🟢 Кнопка отклика на вакансию нажата!");
+        console.log("🟡🔴🟠🟢🟣🟤 Кнопка отклика на вакансию нажата! 🟡🔴🟠🟢🟣🟤");
 
         const vacancyContainerBlock = clickedButton.closest(vacancyContainer);
         console.log("🟢 Получили контейнер вакансии:", vacancyContainerBlock);
         if (!vacancyContainerBlock) {
-            console.log("🔴 Не удалось найти контейнер вакансии, возможно структура страницы изменилась.");
+            console.log("🔴 Не удалось найти контейнер вакансии, возможно структура страницы изменилась");
             return;
         }
 
@@ -170,7 +198,7 @@ function initCoverLetterAutomation() {
         console.log("🔍 Название вакансии:", vacancyTitle, ", Название компании:", companyName);
 
         if (!vacancyTitle || !companyName) {
-            console.log("🔴 Не удалось найти название вакансии или компании. Возможно селекторы устарели.");
+            console.log("🔴 Не удалось найти название вакансии или компании. Возможно селекторы устарели");
             return;
         }
 
@@ -188,25 +216,33 @@ function initCoverLetterAutomation() {
             console.log("🟡 Проверяем на предупреждение о переезде...")
             await checkRelocationWarning();
 
-            console.log("🟡 Проверяем на forced cover letter pop-up...")
-            if (await checkForcedCoverLetter(vacancyTitle, companyName)) {
+            console.log("🟡 Проверяем на вакансию с прямым откликом...")
+            await checkDirectResponseWarning();
+
+            console.log("🟡 Проверяем проверена ли вакансия или нет...")
+            if (await checkIfVacancyAlreadyChecked()) {
 
             } else {
-                const attachLetterButton = await waitForResponseInfinite(addCoverLetterButtonPrimary);
-                attachLetterButton.click();
-                console.log("🟢 Нажали 'Приложить письмо'");
+                console.log("🟡 Проверяем на forced cover letter pop-up...")
+                if (await checkForcedCoverLetter(vacancyTitle, companyName)) {
 
-                const textarea = await waitForResponseInfinite(textareaCoverLetterPrimary);
-                textarea.value = coverLetterText.trim();
-                textarea.dispatchEvent(new Event("input", { bubbles: true }));
-                console.log("🟢 Вставили сопроводительное письмо");
+                } else {
+                    const attachLetterButton = await waitForResponseInfinite(addCoverLetterButtonPrimary);
+                    attachLetterButton.click();
+                    console.log("🟢 Нажали 'Приложить письмо'");
 
-                const submitButton = await waitForResponseInfinite(submitButtonPrimary);
-                submitButton.click();
-                console.log("✅ Сопроводительное письмо отправлено!");
+                    const textarea = await waitForResponseInfinite(textareaCoverLetterPrimary);
+                    textarea.value = coverLetterText.trim();
+                    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+                    console.log("🟢 Вставили сопроводительное письмо");
 
-                saveProcessedVacancy({ title: vacancyTitle, company: companyName });
-                console.log("🟢 Сохраняем вакансию как обработанную...");
+                    const submitButton = await waitForResponseInfinite(submitButtonPrimary);
+                    submitButton.click();
+                    console.log("✅ Сопроводительное письмо отправлено!");
+
+                    saveProcessedVacancy({ title: vacancyTitle, company: companyName });
+                    console.log("🟢 Сохраняем вакансию как обработанную...");
+                }
             }
         } catch (err) {
             console.warn("🔴 Ошибка:", err);
