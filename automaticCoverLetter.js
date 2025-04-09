@@ -16,6 +16,10 @@ const titleToFindAfterRedirect = '[data-qa="title-description"]';
 const waitForRedirectTimeout = 2500;
 const waitAfterRedirectByHistoryTimeout = 1000;
 
+const waitAfterParsingButtons = 5500;
+const waitToScrollButton = 800;
+const waitAfterButtonHasBeenClicked = 5500;
+
 const isVacancyAlreadyChecked = 'div[data-qa="form-helper-error"]';
 
 const coverLetterText = `
@@ -87,7 +91,7 @@ async function checkRelocationWarning() {
     }
 }
 
-async function checkDirectResponseWarning() { // TODO: не проверено
+async function checkDirectResponseWarning() {
     const directResponseButton = await waitForResponse(refuseDirectResposeButton);
 
     if (directResponseButton) {
@@ -99,7 +103,7 @@ async function checkDirectResponseWarning() { // TODO: не проверено
     }
 }
 
-async function checkIfVacancyAlreadyChecked() { // TODO: не проверено
+async function checkIfVacancyAlreadyChecked() {
     const isChecked = await waitForResponse(isVacancyAlreadyChecked);
 
     if (isChecked) {
@@ -176,7 +180,7 @@ function handleRedirectProcessing(clickedButton, vacancyTitle, companyName) {
 }
 
 function initCoverLetterAutomation() {
-    localStorage.removeItem('processedVacancies');
+    // localStorage.removeItem('processedVacancies');
 
     document.body.addEventListener("click", async (event) => {
         const clickedButton = event.target.closest(blueResponseButton);
@@ -250,5 +254,35 @@ function initCoverLetterAutomation() {
     });
 }
 
+function getUnprocessedButtons() {
+    const buttons = Array.from(document.querySelectorAll(blueResponseButton));
+
+    return buttons.filter(btn => {
+        const vacancyBlock = btn.closest(vacancyContainer);
+        const title = vacancyBlock?.querySelector(vacancyTitleSelector)?.textContent?.trim();
+        const company = vacancyBlock?.querySelector(vacancyCompanySelector)?.textContent?.trim();
+        return title && company && !isVacancyProcessed(title, company);
+    });
+}
+
+async function processAllVacanciesPeriodically() {
+    console.log("🔄 Поиск новых вакансий для отклика...");
+
+    for (let i = 0; i < 100; i++) {
+        let buttons = getUnprocessedButtons();
+        console.log(buttons);
+
+        // await new Promise(res => setTimeout(res, waitAfterParsingButtons));
+
+        buttons[i].scrollIntoView({behavior: "smooth", block: "center"});
+        await new Promise(res => setTimeout(res, waitToScrollButton));
+
+        console.log(`👆 Автоматически нажимаем на вакансию...`);
+        buttons[i].click();
+        await new Promise(res => setTimeout(res, waitAfterButtonHasBeenClicked));
+    }
+}
+
 initCoverLetterAutomation();
-console.log("📌 Скрипт активен");
+processAllVacanciesPeriodically();
+console.log("📌 Скрипт активен и работает в автоматическом режиме");
